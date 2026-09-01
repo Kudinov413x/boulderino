@@ -2,6 +2,7 @@ package boulderino.boulderino.entity;
 
 import java.util.ArrayList;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -24,7 +25,9 @@ public class User {
     // Attribute
     private String name;
     private String password;
-    private String eMail;
+    
+    @Column(nullable = false, unique=true)
+    private String email;
 
     @OneToMany(mappedBy = "user")
     private List<Session> sessions = new ArrayList<>();

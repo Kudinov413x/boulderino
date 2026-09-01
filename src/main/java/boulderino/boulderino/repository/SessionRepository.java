@@ -1,4 +1,4 @@
-package boulderino.repository;
+package boulderino.boulderino.repository;
 
 import boulderino.boulderino.entity.Session;
 import org.springframework.data.jpa.repository.JpaRepository;
