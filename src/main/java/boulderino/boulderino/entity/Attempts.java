@@ -19,6 +19,7 @@ public class Attempts {
 
     private int tries;
     private boolean done;
+    private boolean zone;
 
     @ManyToOne
     private Session session;

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
+import boulderino.boulderino.security.JwtService;
+import boulderino.boulderino.dto.LoginResponseDTO;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,14 +24,17 @@ public class AuthController {
 
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
     public AuthController(
         UserService userService,
-        AuthenticationManager authenticationManager) {
+        AuthenticationManager authenticationManager,
+        JwtService jwtService) {
 
     this.userService = userService;
     this.authenticationManager = authenticationManager;
-    }
+    this.jwtService = jwtService;
+}
 
     @PostMapping("/register")
     public ResponseEntity<UserResponseDTO> register(
@@ -48,7 +53,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<String> login(
+    public ResponseEntity<LoginResponseDTO> login(
             @Valid @RequestBody LoginRequestDTO request) {
 
         try {
@@ -59,12 +64,14 @@ public class AuthController {
                     )
             );
 
-            return ResponseEntity.ok("Login erfolgreich");
+            String token = jwtService.generateToken(request.getEmail());
+
+            return ResponseEntity.ok(new LoginResponseDTO(token));
 
         } catch (AuthenticationException e) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body("E-Mail oder Passwort ist falsch");
+                    .build();
         }
     }
 }
