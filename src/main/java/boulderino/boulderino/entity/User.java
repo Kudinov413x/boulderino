@@ -12,6 +12,8 @@ import lombok.Getter;
 import lombok.Setter;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 
 @Getter
 @Setter
@@ -30,9 +32,11 @@ public class User {
     private String email;
 
     @OneToMany(mappedBy = "user")
+    @JsonIgnore
     private List<Session> sessions = new ArrayList<>();
 
     @OneToMany(mappedBy = "user")
+    @JsonIgnore
     private List<Boulder> boulders = new ArrayList<>();
 
     public User(){}

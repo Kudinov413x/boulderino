@@ -1,9 +1,11 @@
 package boulderino.boulderino.service;
 
+import boulderino.boulderino.dto.BoulderCreateDTO;
 import boulderino.boulderino.entity.Boulder;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.BoulderRepository;
 import org.springframework.stereotype.Service;
+import boulderino.boulderino.dto.BoulderResponseDTO;
 
 import java.util.List;
 
@@ -16,37 +18,71 @@ public class BoulderService {
         this.boulderRepository = boulderRepository;
     }
 
-    // Alle Boulder in der DB ausgeben
-    public List<Boulder> getAllBoulders() {
-        return boulderRepository.findAll();
-    }
-    
-    // Boulder durch seine ID finden
-    public Boulder getBoulderById(Long id){
-        return boulderRepository.findById(id).orElseThrow();
+    // Alle Boulder eines Users
+    public List<BoulderResponseDTO> getAllBouldersByUser(User user) {
+        return boulderRepository.findByUser(user)
+                .stream()
+                .map(this::toResponseDTO)
+                .toList();
     }
 
-    // Neuen Boulder einspeichern
-    public Boulder createBoulder(Boulder boulder) {
+    // Boulder eines Users anhand der ID finden
+    public BoulderResponseDTO getBoulderById(Long id, User user) {
+
+        Boulder boulder =  boulderRepository.findById(id)
+                .filter(b -> b.getUser().equals(user))
+                .orElseThrow();
+
+        return toResponseDTO(boulder);
+    }
+
+    // Neuen Boulder für einen User erstellen
+    public Boulder createBoulder(BoulderCreateDTO request, User user) {
+
+        Boulder boulder = new Boulder();
+
+        boulder.setName(request.getName());
+        boulder.setGrade(request.getGrade());
+        boulder.setUser(user);
+
         return boulderRepository.save(boulder);
     }
 
-    // Einen existierenden Boulder anpassen
-    public Boulder updateBoulder(Long id, Boulder boulder) {
-        Boulder existingBoulder = boulderRepository.findById(id).orElseThrow();
-        existingBoulder.setName(boulder.getName());
-        existingBoulder.setGrade(boulder.getGrade());
-        existingBoulder.setUser(boulder.getUser());
-        return boulderRepository.save(existingBoulder);
+    // Boulder eines Users ändern
+    public BoulderResponseDTO updateBoulder(Long id,BoulderCreateDTO request,User user) {
+        Boulder existingBoulder = getBoulderEntityById(id, user);
+
+        existingBoulder.setName(request.getName());
+        existingBoulder.setGrade(request.getGrade());
+
+        Boulder updatedBoulder = boulderRepository.save(existingBoulder);
+
+        return toResponseDTO(updatedBoulder);
     }
 
-    // einen Boulder löschen
-    public void deleteBoulder(Long id) {
-        boulderRepository.deleteById(id);
+    // Boulder eines Users löschen
+    public void deleteBoulder(Long id, User user) {
+        Boulder existingBoulder = getBoulderEntityById(id, user);
+        boulderRepository.delete(existingBoulder);
     }
 
-    // alle boulder eines Users ausgeben
-    public List<Boulder> getAllBouldersByUser(User user){
-        return boulderRepository.findByUser(user);
+    // Hilfsmethode: Entity -> ResponseDTO
+    private BoulderResponseDTO toResponseDTO(Boulder boulder) {
+
+        BoulderResponseDTO response = new BoulderResponseDTO();
+
+        response.setId(boulder.getId());
+        response.setName(boulder.getName());
+        response.setGrade(boulder.getGrade());
+
+        return response;
+    }
+
+    // Hilfsmethode für Operationen, die die Entity benötigen
+    private Boulder getBoulderEntityById(Long id, User user) {
+
+        return boulderRepository.findById(id)
+                .filter(boulder -> boulder.getUser().equals(user))
+                .orElseThrow();
     }
 }
