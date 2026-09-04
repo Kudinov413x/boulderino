@@ -1,6 +1,7 @@
 package boulderino.boulderino.service;
 
 import boulderino.boulderino.dto.BoulderCreateDTO;
+import boulderino.boulderino.dto.BoulderUpdateDTO;
 import boulderino.boulderino.entity.Boulder;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.BoulderRepository;
@@ -49,11 +50,15 @@ public class BoulderService {
     }
 
     // Boulder eines Users ändern
-    public BoulderResponseDTO updateBoulder(Long id,BoulderCreateDTO request,User user) {
+    public BoulderResponseDTO updateBoulder(Long id,BoulderUpdateDTO request,User user) {
         Boulder existingBoulder = getBoulderEntityById(id, user);
 
-        existingBoulder.setName(request.getName());
-        existingBoulder.setGrade(request.getGrade());
+        if (request.getName() != null && !request.getName().isBlank()) {
+            existingBoulder.setName(request.getName());
+        }
+        if (request.getGrade() != null) {
+            existingBoulder.setGrade(request.getGrade());
+        }
 
         Boulder updatedBoulder = boulderRepository.save(existingBoulder);
 

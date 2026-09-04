@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Getter
 @Setter
 @Entity
@@ -25,6 +27,7 @@ public class Session {
     private LocalDate date;
     private String location;
     @OneToMany(mappedBy = "session")
+    @JsonIgnore
     private List<Attempts> attempts = new ArrayList<>();
     @ManyToOne
     private User user;

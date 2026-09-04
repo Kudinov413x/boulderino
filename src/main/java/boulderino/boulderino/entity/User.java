@@ -26,6 +26,7 @@ public class User {
 
     // Attribute
     private String name;
+    //TODO: @JsonIgnore
     private String password;
     
     @Column(nullable = false, unique=true)

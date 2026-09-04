@@ -4,13 +4,14 @@ import boulderino.boulderino.entity.Boulder;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.UserRepository;
 import boulderino.boulderino.service.BoulderService;
+import boulderino.boulderino.dto.BoulderCreateDTO;
+import boulderino.boulderino.dto.BoulderUpdateDTO;
+import boulderino.boulderino.dto.BoulderResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import boulderino.boulderino.dto.BoulderCreateDTO;
 import jakarta.validation.Valid;
-import boulderino.boulderino.dto.BoulderResponseDTO;
 
 import java.util.List;
 
@@ -66,7 +67,7 @@ public class BoulderController {
     @PutMapping("/{id}")
     public BoulderResponseDTO updateBoulder(
             @PathVariable Long id,
-            @Valid @RequestBody BoulderCreateDTO request,
+            @RequestBody BoulderUpdateDTO request,
             Authentication authentication) {
 
         User user = getCurrentUser(authentication);
