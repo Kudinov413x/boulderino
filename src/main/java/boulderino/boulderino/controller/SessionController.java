@@ -3,6 +3,7 @@ package boulderino.boulderino.controller;
 import boulderino.boulderino.dto.SessionUpdateDTO;
 import boulderino.boulderino.dto.SessionCreateDTO;
 import boulderino.boulderino.dto.SessionResponseDTO;
+import boulderino.boulderino.dto.SessionDetailsResponseDTO;
 import boulderino.boulderino.entity.Session;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.UserRepository;
@@ -90,5 +91,14 @@ public class SessionController {
 
         return userRepository.findByEmail(authentication.getName())
                 .orElseThrow();
+    }
+
+    @Operation(summary = "Show all attempts and boulder details of a specific session")
+    @GetMapping("/{sessionId}/details")
+    public List<SessionDetailsResponseDTO> getSessionDetails(@PathVariable Long sessionId, Authentication authentication) {
+
+        User user = getCurrentUser(authentication);
+
+        return sessionService.getSessionDetails(sessionId, user);
     }
 }

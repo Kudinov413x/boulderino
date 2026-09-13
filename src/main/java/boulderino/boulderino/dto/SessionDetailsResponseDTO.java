@@ -10,19 +10,27 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class BoulderResponseDTO {
+public class SessionDetailsResponseDTO {
 
-    private Long id;
+    private Long boulderId;
 
-    private String name;
+    private String boulderName;
 
     private Grade grade;
 
-    private WallAngle wallAngle;
-
     private GripType gripType;
+
+    private WallAngle wallAngle;
 
     private RouteCharacter routeCharacter;
 
     private ClimbingStyle climbingStyle;
+
+    private Long attemptId;
+
+    private int tries;
+
+    private boolean zone;
+
+    private boolean done;
 }

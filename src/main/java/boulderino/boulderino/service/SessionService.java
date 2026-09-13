@@ -3,9 +3,13 @@ package boulderino.boulderino.service;
 import boulderino.boulderino.dto.SessionUpdateDTO;
 import boulderino.boulderino.dto.SessionCreateDTO;
 import boulderino.boulderino.dto.SessionResponseDTO;
+import boulderino.boulderino.dto.SessionDetailsResponseDTO;
 import boulderino.boulderino.entity.Session;
+import boulderino.boulderino.entity.Boulder;
+import boulderino.boulderino.entity.Attempts;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.SessionRepository;
+import boulderino.boulderino.repository.AttemptsRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -15,9 +19,11 @@ import java.util.List;
 public class SessionService {
 
     private final SessionRepository sessionRepository;
+    private final AttemptsRepository attemptsRepository;
 
-    public SessionService(SessionRepository sessionRepository) {
+    public SessionService(SessionRepository sessionRepository, AttemptsRepository attemptsRepository) {
         this.sessionRepository = sessionRepository;
+        this.attemptsRepository = attemptsRepository;
     }
 
     // Alle Sessions eines Users
@@ -97,4 +103,43 @@ public class SessionService {
                 .filter(session -> session.getUser().equals(user))
                 .orElseThrow();
     }
+
+    //Infos über alle Attempts innerhalb einer Session angeben
+    public List<SessionDetailsResponseDTO> getSessionDetails(Long sessionId, User user) {
+
+        // Prüfen, ob die Session existiert
+        // und dem eingeloggten User gehört
+        sessionRepository.findById(sessionId)
+                .filter(session -> session.getUser().equals(user))
+                .orElseThrow();
+
+        return attemptsRepository
+                .findBySessionIdAndSessionUser(sessionId, user)
+                .stream()
+                .map(this::toSessionDetailsResponseDTO)
+                .toList();
+    }
+
+    private SessionDetailsResponseDTO toSessionDetailsResponseDTO(Attempts attempt) {
+
+        SessionDetailsResponseDTO response = new SessionDetailsResponseDTO();
+
+        response.setAttemptId(attempt.getId());
+        response.setTries(attempt.getTries());
+        response.setZone(attempt.isZone());
+        response.setDone(attempt.isDone());
+
+        Boulder boulder = attempt.getBoulder();
+
+        response.setBoulderId(boulder.getId());
+        response.setBoulderName(boulder.getName());
+        response.setGrade(boulder.getGrade());
+        response.setGripType(boulder.getGripType());
+        response.setWallAngle(boulder.getWallAngle());
+        response.setRouteCharacter(boulder.getRouteCharacter());
+        response.setClimbingStyle(boulder.getClimbingStyle());
+
+        return response;
+    }
+
 }

@@ -44,6 +44,10 @@ public class BoulderService {
 
         boulder.setName(request.getName());
         boulder.setGrade(request.getGrade());
+        boulder.setWallAngle(request.getWallAngle());
+        boulder.setGripType(request.getGripType());
+        boulder.setRouteCharacter(request.getRouteCharacter());
+        boulder.setClimbingStyle(request.getClimbingStyle());
         boulder.setUser(user);
 
         return boulderRepository.save(boulder);
@@ -56,8 +60,25 @@ public class BoulderService {
         if (request.getName() != null && !request.getName().isBlank()) {
             existingBoulder.setName(request.getName());
         }
+
         if (request.getGrade() != null) {
             existingBoulder.setGrade(request.getGrade());
+        }
+
+        if (request.getWallAngle() != null) {
+            existingBoulder.setWallAngle(request.getWallAngle());
+        }
+
+        if (request.getGripType() != null) {
+            existingBoulder.setGripType(request.getGripType());
+        }
+
+        if (request.getRouteCharacter() != null) {
+            existingBoulder.setRouteCharacter(request.getRouteCharacter());
+        }
+
+        if (request.getClimbingStyle() != null) {
+            existingBoulder.setClimbingStyle(request.getClimbingStyle());
         }
 
         Boulder updatedBoulder = boulderRepository.save(existingBoulder);
@@ -67,7 +88,9 @@ public class BoulderService {
 
     // Boulder eines Users löschen
     public void deleteBoulder(Long id, User user) {
+
         Boulder existingBoulder = getBoulderEntityById(id, user);
+
         boulderRepository.delete(existingBoulder);
     }
 
@@ -79,6 +102,10 @@ public class BoulderService {
         response.setId(boulder.getId());
         response.setName(boulder.getName());
         response.setGrade(boulder.getGrade());
+        response.setWallAngle(boulder.getWallAngle());
+        response.setGripType(boulder.getGripType());
+        response.setRouteCharacter(boulder.getRouteCharacter());
+        response.setClimbingStyle(boulder.getClimbingStyle());
 
         return response;
     }

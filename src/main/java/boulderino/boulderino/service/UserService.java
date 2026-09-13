@@ -39,5 +39,14 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+    public void deleteUser(Long userId) {
+
+        User user = userRepository
+                .findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User nicht gefunden"));
+
+        userRepository.delete(user);
+    }
 }
 
