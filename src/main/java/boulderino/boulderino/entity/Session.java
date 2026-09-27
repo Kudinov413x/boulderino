@@ -1,5 +1,6 @@
 package boulderino.boulderino.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -24,11 +25,14 @@ public class Session {
     private Long id;
 
     //Attribute
+    private String name;
     private LocalDate date;
     private String location;
-    @OneToMany(mappedBy = "session")
+
+    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<Attempts> attempts = new ArrayList<>();
+
     @ManyToOne
     private User user;
 

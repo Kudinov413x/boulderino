@@ -9,6 +9,7 @@ import boulderino.boulderino.entity.Boulder;
 import boulderino.boulderino.entity.Attempts;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.SessionRepository;
+import jakarta.transaction.Transactional;
 import boulderino.boulderino.repository.AttemptsRepository;
 import org.springframework.stereotype.Service;
 
@@ -29,7 +30,7 @@ public class SessionService {
     // Alle Sessions eines Users
     public List<SessionResponseDTO> getAllSessionsByUser(User user) {
 
-        return sessionRepository.findByUser(user)
+        return sessionRepository.findByUserOrderByDateDescIdDesc(user)
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
@@ -50,6 +51,7 @@ public class SessionService {
 
         session.setDate(LocalDate.now());
         session.setLocation(request.getLocation());
+        session.setName(request.getName());
         session.setUser(user);
 
         return sessionRepository.save(session);
@@ -71,12 +73,17 @@ public class SessionService {
             existingSession.setLocation(request.getLocation());
         }
 
+        if (request.getName() != null) {
+            existingSession.setName(request.getName());
+        }
+
         Session updatedSession = sessionRepository.save(existingSession);
 
         return toResponseDTO(updatedSession);
     }
 
     // Session eines Users löschen
+    @Transactional
     public void deleteSession(Long id, User user) {
 
         Session existingSession = getSessionEntityById(id, user);
@@ -90,6 +97,7 @@ public class SessionService {
         SessionResponseDTO response = new SessionResponseDTO();
 
         response.setId(session.getId());
+        response.setName(session.getName());
         response.setDate(session.getDate());
         response.setLocation(session.getLocation());
 
@@ -102,6 +110,14 @@ public class SessionService {
         return sessionRepository.findById(id)
                 .filter(session -> session.getUser().equals(user))
                 .orElseThrow();
+    }
+
+    // Spezielle Methode um den Namen einer Session wieder zurückzusetzen
+    public SessionResponseDTO resetSessionName(Long id, User user) {
+        Session session = getSessionEntityById(id, user);
+        session.setName(null);
+        Session updatedSession = sessionRepository.save(session);
+        return toResponseDTO(updatedSession);
     }
 
     //Infos über alle Attempts innerhalb einer Session angeben
@@ -138,8 +154,19 @@ public class SessionService {
         response.setWallAngle(boulder.getWallAngle());
         response.setRouteCharacter(boulder.getRouteCharacter());
         response.setClimbingStyle(boulder.getClimbingStyle());
+        response.setFirstAscent(boulder.getFirstAscent());
+        response.setFlashed(boulder.getFlashed());
 
         return response;
+    }
+
+    // gibt alle Sessions eines Users mit dem heutigen Datum zurück
+    public List<SessionResponseDTO> getTodaySessions(User user) {
+        return sessionRepository
+                .findByUserAndDate(user, LocalDate.now())
+                .stream()
+                .map(this::toResponseDTO)
+                .toList();
     }
 
 }

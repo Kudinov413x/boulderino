@@ -33,8 +33,7 @@ public class BoulderController {
 
     @Operation(summary = "Show all boulders of the logged-in user")
     @GetMapping
-    public List<BoulderResponseDTO> getAllBoulders(
-            Authentication authentication) {
+    public List<BoulderResponseDTO> getAllBoulders(Authentication authentication) {
 
         User user = getCurrentUser(authentication);
 
@@ -43,9 +42,7 @@ public class BoulderController {
 
     @Operation(summary = "Search for a specific boulder by its Id")
     @GetMapping("/{id}")
-    public BoulderResponseDTO getBoulderById(
-            @PathVariable Long id,
-            Authentication authentication) {
+    public BoulderResponseDTO getBoulderById(@PathVariable Long id, Authentication authentication) {
 
         User user = getCurrentUser(authentication);
 

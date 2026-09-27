@@ -42,6 +42,13 @@ public class SessionController {
         return sessionService.getAllSessionsByUser(user);
     }
 
+    @Operation(summary = "Show all sessions of an user with that have been created today")
+    @GetMapping("/today")
+    public List<SessionResponseDTO> getTodaySessions(Authentication authentication) {
+        User user = getCurrentUser(authentication);
+        return sessionService.getTodaySessions(user);
+    }
+
     @Operation(summary = "Search for a specific session by its Id")
     @GetMapping("/{id}")
     public SessionResponseDTO getSessionById(
@@ -101,4 +108,17 @@ public class SessionController {
 
         return sessionService.getSessionDetails(sessionId, user);
     }
+
+    
+    @Operation(summary = "Reset the name of a session")
+    @PutMapping("/{id}/reset-name")
+    public SessionResponseDTO resetSessionName(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        User user = getCurrentUser(authentication);
+
+        return sessionService.resetSessionName(id, user);
+    }
+
 }

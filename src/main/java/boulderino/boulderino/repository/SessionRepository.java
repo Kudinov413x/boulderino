@@ -8,7 +8,9 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface SessionRepository extends JpaRepository<Session, Long>{
+    List<Session> findByUserOrderByDateDescIdDesc(User user);
     List<Session> findByUser(User user);
+    List<Session> findByUserAndDate(User user, LocalDate date);
 
     long countByUser(User user);
     long countByUserAndDateBetween( User user, LocalDate startDate, LocalDate endDate );

@@ -33,4 +33,8 @@ public class SessionDetailsResponseDTO {
     private boolean zone;
 
     private boolean done;
+
+    private boolean firstAscent;
+
+    private boolean flashed;
 }

@@ -8,7 +8,8 @@ import lombok.Setter;
 @Getter
 @Setter
 public class SessionCreateDTO {
-    
+    private String name;
+
     @NotBlank
     private String location;
 }

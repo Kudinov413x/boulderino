@@ -3,6 +3,8 @@ package boulderino.boulderino.service;
 import boulderino.boulderino.dto.RegisterRequestDTO;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.UserRepository;
+import jakarta.transaction.Transactional;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +42,7 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    @Transactional
     public void deleteUser(Long userId) {
 
         User user = userRepository
@@ -49,4 +52,3 @@ public class UserService {
         userRepository.delete(user);
     }
 }
-

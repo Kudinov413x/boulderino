@@ -9,6 +9,7 @@ import java.time.LocalDate;
 @Setter
 public class SessionUpdateDTO {
 
+    private String name;
     private LocalDate date;
     private String location;
     

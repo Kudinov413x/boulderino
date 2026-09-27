@@ -10,8 +10,7 @@ import java.time.LocalDate;
 public class SessionResponseDTO {
 
     private Long id;
-
+    private String name;
     private LocalDate date;
-
     private String location;
 }

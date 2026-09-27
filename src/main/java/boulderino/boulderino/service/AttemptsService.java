@@ -9,6 +9,8 @@ import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.AttemptsRepository;
 import boulderino.boulderino.repository.BoulderRepository;
 import boulderino.boulderino.repository.SessionRepository;
+import jakarta.transaction.Transactional;
+
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -103,6 +105,7 @@ public class AttemptsService {
         return toResponseDTO(updatedAttempt);
     }
 
+    @Transactional
     public void deleteAttempt(Long id, User user) {
         Attempts existingAttempt = getAttemptEntityById(id, user);
         attemptsRepository.delete(existingAttempt);

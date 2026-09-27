@@ -1,5 +1,6 @@
 package boulderino.boulderino.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -8,10 +9,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.ArrayList;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 // Tracking von Progress an konkreten einzigartigen Bouldern
 @Getter
@@ -29,8 +35,12 @@ public class Boulder {
     private Grade grade;
 
     @ManyToOne
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @OneToMany( mappedBy = "boulder", cascade = CascadeType.ALL, orphanRemoval = true )
+    @JsonIgnore
+    private List<Attempts> attempts = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     private WallAngle wallAngle;

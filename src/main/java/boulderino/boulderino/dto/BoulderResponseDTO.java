@@ -1,5 +1,7 @@
 package boulderino.boulderino.dto;
 
+import java.time.LocalDate;
+
 import boulderino.boulderino.entity.ClimbingStyle;
 import boulderino.boulderino.entity.Grade;
 import boulderino.boulderino.entity.GripType;
@@ -25,4 +27,12 @@ public class BoulderResponseDTO {
     private RouteCharacter routeCharacter;
 
     private ClimbingStyle climbingStyle;
+
+    private boolean firstAscent;
+    private LocalDate firstAscentDate;
+    private boolean flashed;
+
+    private int totalTries;
+    private int totalTops;
+    private int totalZones;
 }

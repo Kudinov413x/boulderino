@@ -45,8 +45,7 @@ public class ProgressController {
 
     @Operation(summary = "Get General progress of the logged-in user")
     @GetMapping
-    public ProgressResponseDTO getProgress(
-            Authentication authentication) {
+    public ProgressResponseDTO getProgress(Authentication authentication) {
 
         User user = getCurrentUser(authentication);
 

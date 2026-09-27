@@ -77,8 +77,12 @@ public class ProgressService {
 
                         long amountOfTriedBoulders = calculateTriedBouldersForGrade(boulders, grade, context);
                         long amountOfTops = calculateTopsForGrade(boulders, grade, context);
+                        long amountOfZones = calculateZonesForGrade(boulders, grade, context);
+                        long amountOfFlashes = calculateFlashesForGrade(boulders, grade, context);
                         response.setAmountOfTriedBoulders(amountOfTriedBoulders);
                         response.setAmountOfTops(amountOfTops);
+                        response.setAmountOfZones(amountOfZones);
+                        response.setAmountOfFlashes(amountOfFlashes);
                         response.setOpenProjects(amountOfTriedBoulders - amountOfTops);
                         response.setSuccessRate(calculateSuccessRateForGrade(boulders, grade, context));
                         response.setFlashRate(calculateFlashRateForGrade(boulders, grade, context));
@@ -109,6 +113,34 @@ public class ProgressService {
                         .filter(boulder ->
                                 Boolean.TRUE.equals(
                                         boulder.getFirstAscent()))
+                        .count();
+        }
+
+        private long calculateZonesForGrade(List<Boulder> boulders, Grade grade, ProgressContext context) {
+        return boulders.stream()
+                .filter(boulder -> boulder.getGrade() == grade)
+                .filter(boulder -> {
+                        List<Attempts> attempts = context.getAttemptsByBoulder()
+                                .getOrDefault(boulder, List.of());
+
+                        boolean hasZone = attempts.stream()
+                                .anyMatch(Attempts::isZone);
+
+                        boolean hasTop = attempts.stream()
+                                .anyMatch(Attempts::isDone);
+
+                        return hasZone && !hasTop;
+                })
+                .count();
+        }
+
+
+        private long calculateFlashesForGrade( List<Boulder> boulders, Grade grade, ProgressContext context) {
+                return boulders.stream()
+                        .filter(boulder -> boulder.getGrade() == grade)
+                        .filter(boulder -> hasBeenTried(boulder, context))
+                        .filter(boulder ->
+                                Boolean.TRUE.equals(boulder.getFlashed()))
                         .count();
         }
 
@@ -283,13 +315,10 @@ public class ProgressService {
 
                 long flashedBoulders = triedBoulders.stream()
                         .filter(boulder ->
-                                Boolean.TRUE.equals(
-                                        boulder.getFlashed()))
+                                Boolean.TRUE.equals(boulder.getFlashed()))
                         .count();
 
-                return (double) flashedBoulders
-                        / triedBoulders.size()
-                        * 100;
+                return (double) flashedBoulders / triedBoulders.size() * 100;
         }
 
         private long calculateAttemptsUntilTop(Boulder boulder, ProgressContext context) {
@@ -308,7 +337,7 @@ public class ProgressService {
                         totalTries += attempt.getTries();
 
                         if (attempt.isDone()) {
-                        return totalTries;
+                                return totalTries;
                         }
                 }
 
