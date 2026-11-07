@@ -1,6 +1,10 @@
 package boulderino.boulderino.controller;
 
+import boulderino.boulderino.dto.DashboardStatDTO;
+import boulderino.boulderino.dto.GradeDistributionResponseDTO;
+import boulderino.boulderino.dto.UntoppedGradeDistributionResponseDTO;
 import boulderino.boulderino.dto.StatResponseDTO;
+import boulderino.boulderino.dto.SessionStatsDTO;
 import boulderino.boulderino.entity.User;
 import boulderino.boulderino.repository.UserRepository;
 import boulderino.boulderino.service.StatsService;
@@ -36,16 +40,39 @@ public class StatsController {
 
     @Operation(summary = "Get statistics of specific Session of logged in User")
     @GetMapping("/session/{sessionId}")
-    public StatResponseDTO getSessionStats(Authentication authentication, @PathVariable Long sessionId) {
-        
+    public SessionStatsDTO getSessionStats(Authentication authentication, @PathVariable Long sessionId) {
         User user = getCurrentUser(authentication);
-
         return statsService.getSessionStats(sessionId, user);
     }
 
     private User getCurrentUser(Authentication authentication) {
         
         return userRepository.findByEmail(authentication.getName()).orElseThrow();
+    }
+
+    @Operation(summary = "Get dashboard statistics of the logged-in user")
+    @GetMapping("/dashboardStats")
+    public DashboardStatDTO getDashboardStats(Authentication authentication) {
+        User user = getCurrentUser(authentication);
+        return statsService.getDashboardStats(user);
+    }
+
+    @Operation(summary = "Get Grade Distribution of specific Session of logged in User")
+    @GetMapping("/sessionGradeDistribution/{sessionId}")
+    public GradeDistributionResponseDTO getSessionGradeDistribution(Authentication authentication, @PathVariable Long sessionId) {
+        User user = getCurrentUser(authentication);
+        return statsService.getSessionGradeDistribution(sessionId, user);
+    }
+
+    @Operation(summary = "Get grade distribution and zone rate of untopped boulders in a specific session")
+    @GetMapping("/sessionUntoppedGradeDistribution/{sessionId}")
+    public UntoppedGradeDistributionResponseDTO getSessionUntoppedGradeDistribution(
+            Authentication authentication,
+            @PathVariable Long sessionId
+    ) {
+        User user = getCurrentUser(authentication);
+
+        return statsService.getSessionUntoppedGradeDistribution(sessionId, user);
     }
 }
 

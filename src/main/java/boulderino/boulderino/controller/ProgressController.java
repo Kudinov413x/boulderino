@@ -5,6 +5,7 @@ import boulderino.boulderino.dto.AttributeStatsResponseDTO;
 import boulderino.boulderino.dto.FilteredProgressDTO;
 import boulderino.boulderino.dto.GradeDistributionResponseDTO;
 import boulderino.boulderino.dto.MaxGradeOverTimeDTO;
+import boulderino.boulderino.dto.ProgressFilterCountResponseDTO;
 import boulderino.boulderino.dto.ProgressResponseDTO;
 import boulderino.boulderino.dto.StrengthWeaknessResponseDTO;
 import boulderino.boulderino.entity.BoulderAttribute;
@@ -17,6 +18,7 @@ import boulderino.boulderino.repository.UserRepository;
 import boulderino.boulderino.service.ProgressService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import boulderino.boulderino.entity.Grade;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -26,6 +28,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import boulderino.boulderino.dto.ProgressOverTimeResponseDTO;
+import boulderino.boulderino.service.ProgressOverTimeService;
 
 @RestController
 @RequestMapping("/progress")
@@ -33,13 +37,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProgressController {
 
     private final ProgressService progressService;
+    private final ProgressOverTimeService progressOverTimeService;
     private final UserRepository userRepository;
 
     public ProgressController(
             ProgressService progressService,
+            ProgressOverTimeService progressOverTimeService,
             UserRepository userRepository) {
 
         this.progressService = progressService;
+        this.progressOverTimeService = progressOverTimeService;
         this.userRepository = userRepository;
     }
 
@@ -99,14 +106,16 @@ public class ProgressController {
         return progressService.getProgressByAttribute(user, attributeType);
     }
 
-    @Operation(summary = "Get progress statistics filtered by boulder attributes")
+    @Operation(summary = "Get progress statistics filtered by boulder attributes and grade range")
     @GetMapping("/filter")
     public FilteredProgressDTO getProgressByFilters(
             Authentication authentication,
             @RequestParam(required = false) GripType gripType,
             @RequestParam(required = false) WallAngle wallAngle,
             @RequestParam(required = false) ClimbingStyle climbingStyle,
-            @RequestParam(required = false) RouteCharacter routeCharacter) {
+            @RequestParam(required = false) RouteCharacter routeCharacter,
+            @RequestParam(required = false) Grade minGrade,
+            @RequestParam(required = false) Grade maxGrade) {
 
         User user = getCurrentUser(authentication);
 
@@ -115,9 +124,36 @@ public class ProgressController {
                 gripType,
                 wallAngle,
                 climbingStyle,
-                routeCharacter
+                routeCharacter,
+                minGrade,
+                maxGrade
         );
     }
+
+    @Operation(summary = "Returns the number of matching boulders for every available filter option based on the other currently selected filters. The filter group currently being calculated is ignored.")
+    @GetMapping("/filter-options")
+    public ProgressFilterCountResponseDTO getFilterOptionCounts(
+            Authentication authentication,
+            @RequestParam(required = false) GripType gripType,
+            @RequestParam(required = false) WallAngle wallAngle,
+            @RequestParam(required = false) ClimbingStyle climbingStyle,
+            @RequestParam(required = false) RouteCharacter routeCharacter,
+            @RequestParam(required = false) Grade minGrade,
+            @RequestParam(required = false) Grade maxGrade
+    ) {
+        User user = getCurrentUser(authentication);
+
+        return progressService.getFilterOptionCounts(
+                user,
+                gripType,
+                wallAngle,
+                climbingStyle,
+                routeCharacter,
+                minGrade,
+                maxGrade
+        );
+    }
+
 
     @Operation(summary = "Get a List of Strengths and weaknesses of a logged in User")
     @GetMapping("/strengths-weaknesses")
@@ -133,5 +169,15 @@ public class ProgressController {
         return userRepository
                 .findByEmail(authentication.getName())
                 .orElseThrow();
+    }
+
+    @Operation(summary = "Get climbing progress over time for each Session of the logged-in user")
+    @GetMapping("/timeline/over-time")
+    public ProgressOverTimeResponseDTO getProgressOverTime(
+            Authentication authentication) {
+
+        User user = getCurrentUser(authentication);
+
+        return progressOverTimeService.getProgressOverTime(user);
     }
 }

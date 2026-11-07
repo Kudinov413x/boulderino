@@ -7,6 +7,8 @@ import boulderino.boulderino.dto.GradeDistributionDTO;
 import boulderino.boulderino.dto.GradeDistributionResponseDTO;
 import boulderino.boulderino.dto.GradeStatsResponseDTO;
 import boulderino.boulderino.dto.MaxGradeOverTimeDTO;
+import boulderino.boulderino.dto.ProgressFilterCountDTO;
+import boulderino.boulderino.dto.ProgressFilterCountResponseDTO;
 import boulderino.boulderino.dto.ProgressResponseDTO;
 import boulderino.boulderino.dto.StrengthWeaknessDTO;
 import boulderino.boulderino.dto.StrengthWeaknessResponseDTO;
@@ -30,6 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
 @Service
@@ -484,7 +487,7 @@ public class ProgressService {
         //Hilfsmethode für das Berechnen vpn Stärken und Schwächen
         private List<AttributeStatsResponseDTO> getProgressByAttributeSW(ProgressContext context, BoulderAttribute attributeType) {
 
-                List<Boulder> boulders = context.getTriedBoulders();
+                List<Boulder> boulders = context.getBoulders();
 
                 return switch (attributeType) {
 
@@ -526,7 +529,7 @@ public class ProgressService {
         public List<AttributeStatsResponseDTO> getProgressByAttribute(User user, BoulderAttribute attributeType) {
 
                 ProgressContext context = createProgressContext(user);
-                List<Boulder> boulders = context.getTriedBoulders();
+                List<Boulder> boulders = context.getBoulders();
 
                 return switch (attributeType) {
 
@@ -576,131 +579,763 @@ public class ProgressService {
                                         .anyMatch(boulder ->
                                                 attributeGetter.apply(boulder) == value))
                         .map(value -> {
+
                                 List<Boulder> filteredBoulders =
                                         boulders.stream()
                                                 .filter(boulder ->
                                                         attributeGetter.apply(boulder) == value)
                                                 .toList();
-                                long amountOfTriedBoulders = filteredBoulders.size();
-                                long amountOfTops = filteredBoulders.stream()
+
+                                // Nur Boulder mit mindestens einem Versuch
+                                List<Boulder> triedBoulders =
+                                        filteredBoulders.stream()
+                                                .filter(boulder ->
+                                                        hasBeenTried(boulder, context))
+                                                .toList();
+
+                                // Getoppte Boulder
+                                List<Boulder> toppedBoulders =
+                                        filteredBoulders.stream()
                                                 .filter(boulder ->
                                                         Boolean.TRUE.equals(
                                                                 boulder.getFirstAscent()))
-                                                .count();
-                                long openProjects = amountOfTriedBoulders - amountOfTops;
-                                long amountOfFlashes = filteredBoulders.stream()
+                                                .toList();
+
+                                // Offene Projekte:
+                                // nicht getoppt + mindestens ein Versuch
+                                List<Boulder> openProjects =
+                                        filteredBoulders.stream()
+                                                .filter(boulder ->
+                                                        !Boolean.TRUE.equals(
+                                                                boulder.getFirstAscent()))
+                                                .filter(boulder ->
+                                                        hasBeenTried(boulder, context))
+                                                .toList();
+
+                                // Nicht getoppte Boulder mit mindestens einer Zone
+                                List<Boulder> zoneBoulders =
+                                        filteredBoulders.stream()
+                                                .filter(boulder ->
+                                                        !Boolean.TRUE.equals(
+                                                                boulder.getFirstAscent()))
+                                                .filter(boulder ->
+                                                        hasZone(boulder, context))
+                                                .toList();
+
+                                long amountOfTriedBoulders = triedBoulders.size();
+
+                                long amountOfTops = toppedBoulders.size();
+
+                                long amountOfOpenProjects = openProjects.size();
+
+                                long amountOfFlashes =
+                                        filteredBoulders.stream()
                                                 .filter(boulder ->
                                                         Boolean.TRUE.equals(
                                                                 boulder.getFlashed()))
                                                 .count();
-                                double successRate = amountOfTriedBoulders == 0
+
+                                long amountOfZones = zoneBoulders.size();
+
+                                double successRate =
+                                        amountOfTriedBoulders == 0
                                                 ? 0.0
-                                                : (double) amountOfTops / amountOfTriedBoulders * 100;
-                                double flashRate = amountOfTriedBoulders == 0
+                                                : (double) amountOfTops
+                                                / amountOfTriedBoulders
+                                                * 100;
+
+                                double flashRate =
+                                        amountOfTriedBoulders == 0
                                                 ? 0.0
-                                                : (double) amountOfFlashes / amountOfTriedBoulders * 100;
-                                double averageAttemptsUntilTop = filteredBoulders.stream()
-                                                .filter(boulder ->
-                                                        Boolean.TRUE.equals(
-                                                                boulder.getFirstAscent()))
+                                                : (double) amountOfFlashes
+                                                / amountOfTriedBoulders
+                                                * 100;
+
+                                double averageAttemptsUntilTop =
+                                        toppedBoulders.stream()
                                                 .mapToLong(boulder ->
                                                         calculateAttemptsUntilTop(
                                                                 boulder,
                                                                 context))
                                                 .average()
                                                 .orElse(0.0);
-                                double averageTriesOnOpenProjects = filteredBoulders.stream()
-                                                .filter(boulder ->
-                                                        !Boolean.TRUE.equals(
-                                                                boulder.getFirstAscent()))
+
+                                double averageTriesOnOpenProjects =
+                                        openProjects.stream()
                                                 .mapToLong(boulder ->
                                                         calculateTotalTriesForBoulder(
                                                                 boulder,
                                                                 context))
                                                 .average()
                                                 .orElse(0.0);
-                                
-                                AttributeStatsResponseDTO response = new AttributeStatsResponseDTO();
+
+                                String avgGrade =
+                                        calculateAverageGrade(toppedBoulders);
+
+                                String maxGrade =
+                                        calculateMaxGrade(toppedBoulders);
+
+                                String highestZoneGrade =
+                                        calculateMaxGrade(zoneBoulders);
+
+                                String avgGradeOnOpenProjects =
+                                        calculateAverageGrade(openProjects);
+
+                                AttributeStatsResponseDTO response =
+                                        new AttributeStatsResponseDTO();
+
                                 response.setAttribute(value.name());
-                                response.setAmountOfTriedBoulders(amountOfTriedBoulders);
-                                response.setAmountOfTops(amountOfTops);
-                                response.setOpenProjects(openProjects);
-                                response.setSuccessRate(successRate);
-                                response.setFlashRate(flashRate);
-                                response.setAverageAttemptsUntilTop(averageAttemptsUntilTop);
-                                response.setAverageTriesOnOpenProjects(averageTriesOnOpenProjects);
+
+                                response.setAmountOfTriedBoulders(
+                                        amountOfTriedBoulders);
+
+                                response.setAmountOfTops(
+                                        amountOfTops);
+
+                                response.setOpenProjects(
+                                        amountOfOpenProjects);
+
+                                response.setAmountOfFlashes(
+                                        amountOfFlashes);
+
+                                response.setAmountOfZones(
+                                        amountOfZones);
+
+                                response.setSuccessRate(
+                                        successRate);
+
+                                response.setFlashRate(
+                                        flashRate);
+
+                                response.setAverageAttemptsUntilTop(
+                                        averageAttemptsUntilTop);
+
+                                response.setAverageTriesOnOpenProjects(
+                                        averageTriesOnOpenProjects);
+
+                                response.setAvgGrade(
+                                        avgGrade);
+
+                                response.setMaxGrade(
+                                        maxGrade);
+
+                                response.setHighestProjectZoneGrade(
+                                        highestZoneGrade);
+
+                                response.setAvgGradeOnOpenProjects(
+                                        avgGradeOnOpenProjects);
 
                                 return response;
-                        }).toList();
+                        })
+                        .toList();
         }
 
-        //flexibler Filter für die suche nach einer bestimmten Kombination von Boulder Eigenschaften
+        //Hilfsmethoden für calculateAttributeProgress
+        private boolean hasZone( Boulder boulder, ProgressContext context) {
+
+                return context.getAttemptsByBoulder()
+                        .getOrDefault(boulder, List.of())
+                        .stream()
+                        .anyMatch(Attempts::isZone);
+        }
+
+        private String calculateAverageGrade(List<Boulder> boulders) {
+
+                OptionalDouble average =
+                        boulders.stream()
+                                .map(Boulder::getGrade)
+                                .mapToInt(this::getGradeValue)
+                                .average();
+
+                if (average.isEmpty()) {
+                        return null;
+                }
+
+                return getGradeFromValue(average.getAsDouble());
+        }
+
+        private String calculateMaxGrade(List<Boulder> boulders) {
+
+                return boulders.stream()
+                        .map(Boulder::getGrade)
+                        .max(Comparator.comparingInt(this::getGradeValue))
+                        .map(Grade::getDisplayName)
+                        .orElse(null);
+        }
+
+        // Flexibler Filter für die Suche nach einer bestimmten Kombination von Boulder-Eigenschaften inklusive optionalem Grade-Bereich
         public FilteredProgressDTO getProgressByFilters(
-        User user,
-        GripType gripType,
-        WallAngle wallAngle,
-        ClimbingStyle climbingStyle,
-        RouteCharacter routeCharacter) {
+                User user,
+                GripType gripType,
+                WallAngle wallAngle,
+                ClimbingStyle climbingStyle,
+                RouteCharacter routeCharacter,
+                Grade minGrade,
+                Grade ceilingGrade) {
+
+                // Ungültigen Grade-Bereich abfangen
+                if (minGrade != null
+                        && ceilingGrade != null
+                        && compareGrades(minGrade, ceilingGrade) > 0) {
+
+                        throw new IllegalArgumentException(
+                                "Der minimale Grade darf nicht größer als der maximale Grade sein."
+                        );
+                }
 
                 ProgressContext context = createProgressContext(user);
 
-                List<Boulder> filteredBoulders = context.getBoulders()
+                List<Boulder> matchingBoulders = context.getBoulders()
                         .stream()
+
+                        // Grip Type
                         .filter(boulder ->
-                                gripType == null ||
-                                boulder.getGripType() == gripType)
+                                gripType == null
+                                || boulder.getGripType() == gripType)
+
+                        // Wall Angle
                         .filter(boulder ->
-                                wallAngle == null ||
-                                boulder.getWallAngle() == wallAngle)
+                                wallAngle == null
+                                || boulder.getWallAngle() == wallAngle)
+
+                        // Climbing Style
                         .filter(boulder ->
-                                climbingStyle == null ||
-                                boulder.getClimbingStyle() == climbingStyle)
+                                climbingStyle == null
+                                || boulder.getClimbingStyle() == climbingStyle)
+
+                        // Route Character
                         .filter(boulder ->
-                                routeCharacter == null ||
-                                boulder.getRouteCharacter() == routeCharacter)
+                                routeCharacter == null
+                                || boulder.getRouteCharacter() == routeCharacter)
+
+                        // Untere Grade-Grenze
+                        .filter(boulder ->
+                                minGrade == null
+                                || compareGrades(boulder.getGrade(), minGrade) >= 0)
+
+                        // Obere Grade-Grenze
+                        .filter(boulder ->
+                                ceilingGrade == null
+                                || compareGrades(boulder.getGrade(), ceilingGrade) <= 0)
+
+                        .toList();
+
+                // Boulder mit mindestens einem Versuch
+                List<Boulder> triedBoulders = matchingBoulders.stream()
                         .filter(boulder ->
                                 hasBeenTried(boulder, context))
                         .toList();
 
-                long amountOfTriedBoulders = filteredBoulders.size();
-                long amountOfTops = filteredBoulders.stream()
+                // Getoppte Boulder
+                List<Boulder> toppedBoulders = matchingBoulders.stream()
                         .filter(boulder ->
                                 Boolean.TRUE.equals(boulder.getFirstAscent()))
-                        .count();
-                long openProjects = amountOfTriedBoulders - amountOfTops;
-                long amountOfFlashes = filteredBoulders.stream()
-                        .filter(boulder ->
-                                Boolean.TRUE.equals(boulder.getFlashed()))
-                        .count();
-                double successRate = amountOfTriedBoulders == 0
-                        ? 0.0
-                        : (double) amountOfTops / amountOfTriedBoulders * 100;
-                double flashRate = amountOfTriedBoulders == 0
-                        ? 0.0
-                        : (double) amountOfFlashes / amountOfTriedBoulders * 100;
-                double averageAttemptsUntilTop = filteredBoulders.stream()
-                        .filter(boulder ->
-                                Boolean.TRUE.equals(boulder.getFirstAscent()))
-                        .mapToLong(boulder ->
-                                calculateAttemptsUntilTop(boulder, context))
-                        .average()
-                        .orElse(0.0);
-                double averageTriesOnOpenProjects = filteredBoulders.stream()
+                        .toList();
+
+                // Offene Projekte:
+                // mindestens ein Versuch + noch nicht getoppt
+                List<Boulder> openProjects = matchingBoulders.stream()
                         .filter(boulder ->
                                 !Boolean.TRUE.equals(boulder.getFirstAscent()))
-                        .mapToLong(boulder ->
-                                calculateTotalTriesForBoulder(boulder, context))
-                        .average()
-                        .orElse(0.0);
+                        .filter(boulder ->
+                                hasBeenTried(boulder, context))
+                        .toList();
 
-                FilteredProgressDTO response = new FilteredProgressDTO();
-                response.setAmountOfTriedBoulders(amountOfTriedBoulders);
-                response.setAmountOfTops(amountOfTops);
-                response.setOpenProjects(openProjects);
-                response.setSuccessRate(successRate);
-                response.setFlashRate(flashRate);
-                response.setAverageAttemptsUntilTop(averageAttemptsUntilTop);
-                response.setAverageTriesOnOpenProjects(averageTriesOnOpenProjects);
+                // Offene Projekte mit mindestens einer Zone
+                List<Boulder> zoneBoulders = matchingBoulders.stream()
+                        .filter(boulder ->
+                                !Boolean.TRUE.equals(boulder.getFirstAscent()))
+                        .filter(boulder ->
+                                hasZone(boulder, context))
+                        .toList();
+
+                long amountOfTriedBoulders =
+                        triedBoulders.size();
+
+                long amountOfTops =
+                        toppedBoulders.size();
+
+                long amountOfOpenProjects =
+                        openProjects.size();
+
+                long amountOfFlashes =
+                        matchingBoulders.stream()
+                                .filter(boulder ->
+                                        Boolean.TRUE.equals(boulder.getFlashed()))
+                                .count();
+
+                long amountOfZones =
+                        zoneBoulders.size();
+
+                double successRate =
+                        amountOfTriedBoulders == 0
+                                ? 0.0
+                                : (double) amountOfTops
+                                / amountOfTriedBoulders
+                                * 100;
+
+                double flashRate =
+                        amountOfTriedBoulders == 0
+                                ? 0.0
+                                : (double) amountOfFlashes
+                                / amountOfTriedBoulders
+                                * 100;
+
+                double averageAttemptsUntilTop =
+                        toppedBoulders.stream()
+                                .mapToLong(boulder ->
+                                        calculateAttemptsUntilTop(
+                                                boulder,
+                                                context))
+                                .average()
+                                .orElse(0.0);
+
+                double averageTriesOnOpenProjects =
+                        openProjects.stream()
+                                .mapToLong(boulder ->
+                                        calculateTotalTriesForBoulder(
+                                                boulder,
+                                                context))
+                                .average()
+                                .orElse(0.0);
+
+                // Durchschnittsgrad der getoppten Boulder
+                String avgGrade =
+                        calculateAverageGrade(toppedBoulders);
+
+                // Höchster getoppter Boulder
+                String maxGrade = calculateMaxGrade(toppedBoulders);
+
+                // Höchster Grad eines offenen Projekts mit Zone
+                String highestProjectZoneGrade = calculateMaxGrade(zoneBoulders);
+
+                // Durchschnittsgrad der offenen Projekte
+                String avgGradeOnOpenProjects =
+                        calculateAverageGrade(openProjects);
+
+                FilteredProgressDTO response =
+                        new FilteredProgressDTO();
+
+                response.setAmountOfTriedBoulders(
+                        amountOfTriedBoulders);
+
+                response.setAmountOfTops(
+                        amountOfTops);
+
+                response.setOpenProjects(
+                        amountOfOpenProjects);
+
+                response.setAmountOfFlashes(
+                        amountOfFlashes);
+
+                response.setAmountOfZones(
+                        amountOfZones);
+
+                response.setSuccessRate(
+                        successRate);
+
+                response.setFlashRate(
+                        flashRate);
+
+                response.setAverageAttemptsUntilTop(
+                        averageAttemptsUntilTop);
+
+                response.setAverageTriesOnOpenProjects(
+                        averageTriesOnOpenProjects);
+
+                response.setAvgGrade(
+                        avgGrade);
+
+                response.setMaxGrade(
+                        maxGrade);
+
+                response.setHighestProjectZoneGrade(
+                        highestProjectZoneGrade);
+
+                response.setAvgGradeOnOpenProjects(
+                        avgGradeOnOpenProjects);
+
+                return response;
+        }
+
+        // Frontend Erweiterung:  Vorschau der Anzahl der zutreffenden Boulder für weitere Filter-Option
+        public ProgressFilterCountResponseDTO getFilterOptionCounts(
+                User user,
+                GripType selectedGripType,
+                WallAngle selectedWallAngle,
+                ClimbingStyle selectedClimbingStyle,
+                RouteCharacter selectedRouteCharacter,
+                Grade minGrade,
+                Grade maxGrade) {
+
+                if (minGrade != null
+                        && maxGrade != null
+                        && compareGrades(minGrade, maxGrade) > 0) {
+
+                        throw new IllegalArgumentException(
+                                "Der minimale Grade darf nicht größer als der maximale Grade sein."
+                        );
+                }
+
+                ProgressContext context = createProgressContext(user);
+
+                /*
+                * ============================================================
+                * NUR TRIED BOULDERS
+                * ============================================================
+                *
+                * Ein Boulder ohne Attempt darf in den Filter-Counts
+                * nicht auftauchen.
+                */
+                List<Boulder> triedBoulders = context.getBoulders()
+                        .stream()
+                        .filter(boulder -> hasBeenTried(boulder, context))
+                        .toList();
+
+                ProgressFilterCountResponseDTO response = new ProgressFilterCountResponseDTO();
+
+                /*
+                * ============================================================
+                * GRIP TYPES
+                * ============================================================
+                *
+                * Der aktuell ausgewählte GripType wird ignoriert.
+                * Alle anderen aktiven Filter bleiben bestehen.
+                */
+                List<ProgressFilterCountDTO> gripTypeCounts =
+                        Arrays.stream(GripType.values())
+                                .map(gripType -> {
+
+                                        long count = triedBoulders.stream()
+                                                .filter(boulder ->
+                                                        boulder.getGripType() == gripType)
+
+                                                .filter(boulder ->
+                                                        selectedWallAngle == null
+                                                        || boulder.getWallAngle() == selectedWallAngle)
+
+                                                .filter(boulder ->
+                                                        selectedClimbingStyle == null
+                                                        || boulder.getClimbingStyle() == selectedClimbingStyle)
+
+                                                .filter(boulder ->
+                                                        selectedRouteCharacter == null
+                                                        || boulder.getRouteCharacter() == selectedRouteCharacter)
+
+                                                .filter(boulder ->
+                                                        minGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                minGrade) >= 0)
+
+                                                .filter(boulder ->
+                                                        maxGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                maxGrade) <= 0)
+
+                                                .count();
+
+                                        return new ProgressFilterCountDTO(
+                                                gripType.name(),
+                                                count
+                                        );
+                                })
+                                .toList();
+
+                /*
+                * ============================================================
+                * WALL ANGLES
+                * ============================================================
+                */
+                List<ProgressFilterCountDTO> wallAngleCounts =
+                        Arrays.stream(WallAngle.values())
+                                .map(wallAngle -> {
+
+                                        long count = triedBoulders.stream()
+                                                .filter(boulder ->
+                                                        boulder.getWallAngle() == wallAngle)
+
+                                                .filter(boulder ->
+                                                        selectedGripType == null
+                                                        || boulder.getGripType() == selectedGripType)
+
+                                                .filter(boulder ->
+                                                        selectedClimbingStyle == null
+                                                        || boulder.getClimbingStyle() == selectedClimbingStyle)
+
+                                                .filter(boulder ->
+                                                        selectedRouteCharacter == null
+                                                        || boulder.getRouteCharacter() == selectedRouteCharacter)
+
+                                                .filter(boulder ->
+                                                        minGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                minGrade) >= 0)
+
+                                                .filter(boulder ->
+                                                        maxGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                maxGrade) <= 0)
+
+                                                .count();
+
+                                        return new ProgressFilterCountDTO(
+                                                wallAngle.name(),
+                                                count
+                                        );
+                                })
+                                .toList();
+
+                /*
+                * ============================================================
+                * CLIMBING STYLES
+                * ============================================================
+                */
+                List<ProgressFilterCountDTO> climbingStyleCounts =
+                        Arrays.stream(ClimbingStyle.values())
+                                .map(climbingStyle -> {
+
+                                        long count = triedBoulders.stream()
+                                                .filter(boulder ->
+                                                        boulder.getClimbingStyle() == climbingStyle)
+
+                                                .filter(boulder ->
+                                                        selectedGripType == null
+                                                        || boulder.getGripType() == selectedGripType)
+
+                                                .filter(boulder ->
+                                                        selectedWallAngle == null
+                                                        || boulder.getWallAngle() == selectedWallAngle)
+
+                                                .filter(boulder ->
+                                                        selectedRouteCharacter == null
+                                                        || boulder.getRouteCharacter() == selectedRouteCharacter)
+
+                                                .filter(boulder ->
+                                                        minGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                minGrade) >= 0)
+
+                                                .filter(boulder ->
+                                                        maxGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                maxGrade) <= 0)
+
+                                                .count();
+
+                                        return new ProgressFilterCountDTO(
+                                                climbingStyle.name(),
+                                                count
+                                        );
+                                })
+                                .toList();
+
+                /*
+                * ============================================================
+                * ROUTE CHARACTERS
+                * ============================================================
+                */
+                List<ProgressFilterCountDTO> routeCharacterCounts =
+                        Arrays.stream(RouteCharacter.values())
+                                .map(routeCharacter -> {
+
+                                        long count = triedBoulders.stream()
+                                                .filter(boulder ->
+                                                        boulder.getRouteCharacter() == routeCharacter)
+
+                                                .filter(boulder ->
+                                                        selectedGripType == null
+                                                        || boulder.getGripType() == selectedGripType)
+
+                                                .filter(boulder ->
+                                                        selectedWallAngle == null
+                                                        || boulder.getWallAngle() == selectedWallAngle)
+
+                                                .filter(boulder ->
+                                                        selectedClimbingStyle == null
+                                                        || boulder.getClimbingStyle() == selectedClimbingStyle)
+
+                                                .filter(boulder ->
+                                                        minGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                minGrade) >= 0)
+
+                                                .filter(boulder ->
+                                                        maxGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                maxGrade) <= 0)
+
+                                                .count();
+
+                                        return new ProgressFilterCountDTO(
+                                                routeCharacter.name(),
+                                                count
+                                        );
+                                })
+                                .toList();
+
+                /*
+                * ============================================================
+                * MIN GRADES
+                * ============================================================
+                *
+                * Für jeden möglichen MinGrade:
+                *
+                *     Boulder Grade >= ausgewählter Grade
+                *
+                * Bereits gesetzter maxGrade wird berücksichtigt.
+                *
+                * Beispiel:
+                *
+                * MinGrade: 6a
+                * MaxGrade: 7b
+                *
+                * -> für MinGrade 6a zählen nur Boulder
+                *    zwischen 6a und 7b.
+                */
+                List<ProgressFilterCountDTO> minGradeCounts =
+                        Arrays.stream(Grade.values())
+                                .map(grade -> {
+
+                                        long count = triedBoulders.stream()
+
+                                                .filter(boulder ->
+                                                        selectedGripType == null
+                                                        || boulder.getGripType() == selectedGripType)
+
+                                                .filter(boulder ->
+                                                        selectedWallAngle == null
+                                                        || boulder.getWallAngle() == selectedWallAngle)
+
+                                                .filter(boulder ->
+                                                        selectedClimbingStyle == null
+                                                        || boulder.getClimbingStyle() == selectedClimbingStyle)
+
+                                                .filter(boulder ->
+                                                        selectedRouteCharacter == null
+                                                        || boulder.getRouteCharacter() == selectedRouteCharacter)
+
+                                                /*
+                                                * MinGrade-Bedingung:
+                                                *
+                                                * Boulder müssen mindestens
+                                                * den dargestellten Grade haben.
+                                                */
+                                                .filter(boulder ->
+                                                        compareGrades(
+                                                                boulder.getGrade(),
+                                                                grade) >= 0)
+
+                                                /*
+                                                * Falls bereits ein MaxGrade
+                                                * ausgewählt wurde, muss dieser
+                                                * ebenfalls eingehalten werden.
+                                                */
+                                                .filter(boulder ->
+                                                        maxGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                maxGrade) <= 0)
+
+                                                .count();
+
+                                        return new ProgressFilterCountDTO(
+                                                grade.getDisplayName(),
+                                                count
+                                        );
+                                })
+                                .toList();
+
+                /*
+                * ============================================================
+                * MAX GRADES
+                * ============================================================
+                *
+                * Für jeden möglichen MaxGrade:
+                *
+                *     Boulder Grade <= ausgewählter Grade
+                *
+                * Bereits gesetzter minGrade wird berücksichtigt.
+                *
+                * Beispiel:
+                *
+                * MinGrade: 6a
+                * MaxGrade: 7b
+                *
+                * -> für MaxGrade 7b zählen nur Boulder
+                *    zwischen 6a und 7b.
+                */
+                List<ProgressFilterCountDTO> maxGradeCounts =
+                        Arrays.stream(Grade.values())
+                                .map(grade -> {
+
+                                        long count = triedBoulders.stream()
+
+                                                .filter(boulder ->
+                                                        selectedGripType == null
+                                                        || boulder.getGripType() == selectedGripType)
+
+                                                .filter(boulder ->
+                                                        selectedWallAngle == null
+                                                        || boulder.getWallAngle() == selectedWallAngle)
+
+                                                .filter(boulder ->
+                                                        selectedClimbingStyle == null
+                                                        || boulder.getClimbingStyle() == selectedClimbingStyle)
+
+                                                .filter(boulder ->
+                                                        selectedRouteCharacter == null
+                                                        || boulder.getRouteCharacter() == selectedRouteCharacter)
+
+                                                /*
+                                                * MaxGrade-Bedingung:
+                                                *
+                                                * Boulder dürfen maximal
+                                                * den dargestellten Grade haben.
+                                                */
+                                                .filter(boulder ->
+                                                        compareGrades(
+                                                                boulder.getGrade(),
+                                                                grade) <= 0)
+
+                                                /*
+                                                * Falls bereits ein MinGrade
+                                                * ausgewählt wurde, muss dieser
+                                                * ebenfalls eingehalten werden.
+                                                */
+                                                .filter(boulder ->
+                                                        minGrade == null
+                                                        || compareGrades(
+                                                                boulder.getGrade(),
+                                                                minGrade) >= 0)
+
+                                                .count();
+
+                                        return new ProgressFilterCountDTO(
+                                                grade.getDisplayName(),
+                                                count
+                                        );
+                                })
+                                .toList();
+
+                /*
+                * ============================================================
+                * RESPONSE
+                * ============================================================
+                */
+                response.setGripTypes(gripTypeCounts);
+                response.setWallAngles(wallAngleCounts);
+                response.setClimbingStyles(climbingStyleCounts);
+                response.setRouteCharacters(routeCharacterCounts);
+                response.setMinGrades(minGradeCounts);
+                response.setMaxGrades(maxGradeCounts);
 
                 return response;
         }
@@ -743,7 +1378,7 @@ public class ProgressService {
         private void compareAttributes(List<CompareAttributeDTO> stats, BoulderAttribute attributeType, List<StrengthWeaknessDTO> strengths, List<StrengthWeaknessDTO> weaknesses, double maxGradeUser) {
 
                 final int MINIMUM_TRIED_BOULDERS = 5;
-                final double THRESHOLD = 1.0;
+                final double THRESHOLD = 5.0;
                 List<CompareAttributeDTO> validStats = stats.stream()
                                 .filter(stat ->
                                         stat.getAmountOfTriedBoulders()
@@ -768,25 +1403,18 @@ public class ProgressService {
         }
 
         private StrengthWeaknessDTO createStrengthWeaknessDTO(CompareAttributeDTO stat, BoulderAttribute attributeType, double compositeScore) {
-
                 StrengthWeaknessDTO response = new StrengthWeaknessDTO();
-
                 response.setAttributeType(attributeType);
                 response.setAttribute(stat.getAttribute());
                 response.setCompositeScore(compositeScore);
-
                 return response;
         }
 
         private double calculateCompositeScore(CompareAttributeDTO stat, double maxGradeUser) {
-
                 double successFactor = calculateSuccessFactor(stat, maxGradeUser);
-
                 double efficiencyFactor = calculateEfficiencyFactor(stat);
-
                 double projectFactor = calculateProjectFactor(stat);
-
-                return successFactor * 0.55 + efficiencyFactor * 0.35 + projectFactor * 0.10;
+                return successFactor * 0.55 + efficiencyFactor * 0.40 + projectFactor * 0.05;
         }
 
         //(SuccessRate * (Gavg_top/Gmax)*0,7) + (flashRate * (Gavg_flash/Gmax)*0,3)
@@ -943,7 +1571,7 @@ public class ProgressService {
                 }
 
                 double efficiencyFactor = 100 * (1 - (Math.log(stat.getAverageAttemptsUntilTop()) / Math.log(upperLimit)));
-                return efficiencyFactor;
+                return Math.max(0.0, efficiencyFactor);
         }
 
         //min(100, (avgTriesOnOpenProjects/upperLimit)*100)
@@ -956,6 +1584,45 @@ public class ProgressService {
 
                 double projectFactor = Math.min(100.0, (stat.getAverageTriesOnOpenProjects()/upperLimit) * 100);
                 return projectFactor;
+        }
+
+        //Strength&Weaknesses für eine Bestimmte Session. Wird für SessionStatsInsightService genutzt.
+        public StrengthWeaknessResponseDTO getStrengthsAndWeaknessesBefore(User user, LocalDate date) {
+
+                ProgressContext context = createProgressContext(user, date);
+
+                List<StrengthWeaknessDTO> strengths = new ArrayList<>();
+                List<StrengthWeaknessDTO> weaknesses = new ArrayList<>();
+
+                double maxGradeUser = calculateMaxGradeValue(context);
+
+                for (BoulderAttribute attributeType : BoulderAttribute.values()) {
+
+                        List<AttributeStatsResponseDTO> stats =
+                                getProgressByAttributeSW(context, attributeType);
+
+                        List<CompareAttributeDTO> compareStats = stats.stream()
+                                .map(stat -> createCompareAttributeDTO(
+                                        context,
+                                        stat,
+                                        attributeType))
+                                .toList();
+
+                        compareAttributes(
+                                compareStats,
+                                attributeType,
+                                strengths,
+                                weaknesses,
+                                maxGradeUser);
+                }
+
+                StrengthWeaknessResponseDTO response =
+                        new StrengthWeaknessResponseDTO();
+
+                response.setStrengths(strengths);
+                response.setWeaknesses(weaknesses);
+
+                return response;
         }
 
         private static class ProgressContext {
@@ -1008,6 +1675,36 @@ public class ProgressService {
                                                 .anyMatch(attempt ->
                                                         attempt.getTries() >= 1))
                                 .toList();
+
+                return new ProgressContext(
+                        boulders,
+                        triedBoulders,
+                        attemptsByBoulder
+                );
+        }
+
+        private ProgressContext createProgressContext(User user, LocalDate beforeDate) {
+
+                List<Boulder> boulders = boulderRepository.findByUser(user);
+
+                List<Attempts> attempts = attemptsRepository.findByBoulderIn(boulders)
+                        .stream()
+                        .filter(attempt ->
+                                attempt.getSession() != null
+                                && attempt.getSession().getDate() != null
+                                && attempt.getSession().getDate().isBefore(beforeDate))
+                        .toList();
+
+                Map<Boulder, List<Attempts>> attemptsByBoulder =
+                        attempts.stream()
+                                .collect(Collectors.groupingBy(Attempts::getBoulder));
+
+                List<Boulder> triedBoulders = boulders.stream()
+                        .filter(boulder ->
+                                attemptsByBoulder.getOrDefault(boulder, List.of())
+                                        .stream()
+                                        .anyMatch(attempt -> attempt.getTries() >= 1))
+                        .toList();
 
                 return new ProgressContext(
                         boulders,

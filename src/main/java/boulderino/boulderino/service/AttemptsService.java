@@ -182,10 +182,10 @@ public class AttemptsService {
 
     public void recalculateProgressForUser(User user) {
 
-    List<Boulder> boulders = boulderRepository.findByUser(user);
+        List<Boulder> boulders = boulderRepository.findByUser(user);
 
-    for (Boulder boulder : boulders) {
-        updateFirstTryProgress(boulder);
+        for (Boulder boulder : boulders) {
+            updateFirstTryProgress(boulder);
+        }
     }
-}
 }

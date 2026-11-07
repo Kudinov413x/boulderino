@@ -1,6 +1,7 @@
 package boulderino.boulderino.entity;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -28,6 +29,8 @@ public class Session {
     private String name;
     private LocalDate date;
     private String location;
+    @Column(columnDefinition = "TEXT")
+    private String notes;
 
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore

@@ -4,6 +4,7 @@ import boulderino.boulderino.dto.SessionUpdateDTO;
 import boulderino.boulderino.dto.SessionCreateDTO;
 import boulderino.boulderino.dto.SessionResponseDTO;
 import boulderino.boulderino.dto.SessionDetailsResponseDTO;
+import boulderino.boulderino.dto.SessionNotesDTO;
 import boulderino.boulderino.entity.Session;
 import boulderino.boulderino.entity.Boulder;
 import boulderino.boulderino.entity.Attempts;
@@ -12,19 +13,27 @@ import boulderino.boulderino.repository.SessionRepository;
 import jakarta.transaction.Transactional;
 import boulderino.boulderino.repository.AttemptsRepository;
 import org.springframework.stereotype.Service;
+import boulderino.boulderino.repository.BoulderRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class SessionService {
 
     private final SessionRepository sessionRepository;
     private final AttemptsRepository attemptsRepository;
+    private final BoulderRepository boulderRepository;
 
-    public SessionService(SessionRepository sessionRepository, AttemptsRepository attemptsRepository) {
+    public SessionService(
+            SessionRepository sessionRepository,
+            AttemptsRepository attemptsRepository,
+            BoulderRepository boulderRepository) {
+
         this.sessionRepository = sessionRepository;
         this.attemptsRepository = attemptsRepository;
+        this.boulderRepository = boulderRepository;
     }
 
     // Alle Sessions eines Users
@@ -167,6 +176,60 @@ public class SessionService {
                 .stream()
                 .map(this::toResponseDTO)
                 .toList();
+    }
+
+    // ermittelt die letzte Session die nicht heute ist fürs dashboard im frontend
+    public Optional<SessionResponseDTO> getLatestSessionExceptToday(User user) {
+
+        return sessionRepository
+                .findFirstByUserAndDateBeforeOrderByDateDescIdDesc(
+                        user,
+                        LocalDate.now()
+                )
+                .map(this::toResponseDTO);
+    }
+
+    //sucht alle Sessions, in denen sich ein Attempt zu einem Boulder befindet
+    public List<SessionResponseDTO> getSessionsByBoulder(Long boulderId, User user) {
+
+        Boulder boulder = boulderRepository.findById(boulderId)
+                .filter(b -> b.getUser().equals(user))
+                .orElseThrow();
+
+        return attemptsRepository
+                .findSessionsByBoulderAndUser(boulder, user)
+                .stream()
+                .map(this::toResponseDTO)
+                .toList();
+    }
+
+    //Lesen und Updaten von Notizen
+    public SessionNotesDTO getSessionNotes(Long sessionId, User user) {
+        Session session = sessionRepository.findByIdAndUser(sessionId, user)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        SessionNotesDTO dto = new SessionNotesDTO();
+        dto.setNotes(session.getNotes());
+
+        return dto;
+    }
+
+    public SessionNotesDTO updateSessionNotes(
+            Long sessionId,
+            SessionNotesDTO request,
+            User user
+    ) {
+        Session session = sessionRepository.findByIdAndUser(sessionId, user)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        session.setNotes(request.getNotes());
+
+        Session savedSession = sessionRepository.save(session);
+
+        SessionNotesDTO dto = new SessionNotesDTO();
+        dto.setNotes(savedSession.getNotes());
+
+        return dto;
     }
 
 }

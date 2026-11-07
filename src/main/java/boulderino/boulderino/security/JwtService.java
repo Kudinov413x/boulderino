@@ -12,33 +12,33 @@ import java.util.Date;
 @Service
 public class JwtService {
 
-    private final SecretKey secretKey;
+        private final SecretKey secretKey;
 
-    public JwtService(@Value("${jwt.secret}") String secret) {
-        this.secretKey = Keys.hmacShaKeyFor(
-                secret.getBytes(StandardCharsets.UTF_8)
-        );
-    }
+        public JwtService(@Value("${jwt.secret}") String secret) {
+                this.secretKey = Keys.hmacShaKeyFor(
+                        secret.getBytes(StandardCharsets.UTF_8)
+                );
+        }
 
-    public String generateToken(String email) {
+        public String generateToken(String email) {
 
-        return Jwts.builder()
-                .subject(email)
-                .issuedAt(new Date())
-                .expiration(
-                        new Date(System.currentTimeMillis() + 1000 * 60 * 60)
-                )
-                .signWith(secretKey)
-                .compact();
-    }
+                return Jwts.builder()
+                        .subject(email)
+                        .issuedAt(new Date())
+                        .expiration(
+                                new Date(System.currentTimeMillis() + 1000 * 60 * 60)
+                        )
+                        .signWith(secretKey)
+                        .compact();
+        }
 
-    public String extractEmail(String token) {
+        public String extractEmail(String token) {
 
-    return Jwts.parser()
-            .verifyWith(secretKey)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload()
-            .getSubject();
-}
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+        }
 }
