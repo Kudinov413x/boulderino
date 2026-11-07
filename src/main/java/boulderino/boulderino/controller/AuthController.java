@@ -4,11 +4,14 @@ import boulderino.boulderino.dto.LoginRequestDTO;
 import boulderino.boulderino.dto.RegisterRequestDTO;
 import boulderino.boulderino.dto.UserResponseDTO;
 import boulderino.boulderino.entity.User;
+import boulderino.boulderino.repository.UserRepository;
 import boulderino.boulderino.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,16 +31,19 @@ public class AuthController {
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final UserRepository userRepository; // Benötigen wir zur Überprüfung
 
     public AuthController(
         UserService userService,
         AuthenticationManager authenticationManager,
-        JwtService jwtService) {
+        JwtService jwtService,
+        UserRepository userRepository) {
 
-    this.userService = userService;
-    this.authenticationManager = authenticationManager;
-    this.jwtService = jwtService;
-}
+        this.userService = userService;
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
+        this.userRepository = userRepository;
+    }
 
     @PostMapping("/register")
     public ResponseEntity<UserResponseDTO> register(
@@ -78,9 +84,25 @@ public class AuthController {
         }
     }
 
-    @Operation(summary = "Delete an user")
+    @Operation(summary = "Delete own user account")
     @DeleteMapping("/{id}")
-    public void deleteUser( @PathVariable Long id) {
+    @SecurityRequirement(name = "bearerAuth") // Erfordert zwingend ein gültiges Token
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        // 1. Den aktuell eingeloggten User ermitteln
+        User currentUser = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new RuntimeException("User nicht gefunden"));
+
+        // 2. Sicherheitsprüfung: Versucht der User gerade sich selbst zu löschen?
+        if (!currentUser.getId().equals(id)) {
+            // Wenn die ID nicht übereinstimmt -> Zugriff verweigern (403 Forbidden)
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // 3. Wenn er es selbst ist, Account löschen
         userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
     }
 }
